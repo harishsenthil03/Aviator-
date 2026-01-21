@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Aviator PRO Signal (DEMO)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body{background:#020617;color:#fff;font-family:Arial;text-align:center;padding:10px}
+h2{color:#38bdf8}
+select,input,button{padding:10px;font-size:15px;margin:5px;border-radius:6px}
+.card{border:1px solid #334155;border-radius:10px;padding:12px;margin-top:10px}
+.bet{color:#22c55e}
+.wait{color:#ef4444}
+.warn{color:#facc15}
+canvas{background:#020617;border:1px solid #334155;margin-top:10px}
+</style>
+</head>
+<body>
+
+<h2>✈️ AVIATOR PRO SIGNAL (DEMO)</h2>
+
+<select id="siteSel">
+  <option value="aviator">Aviator</option>
+  <option value="royal">Royal Win</option>
+  <option value="1xbet">1xBet</option>
+  <option value="pari">Parimatch</option>
+</select><br>
+
+<input type="number" step="0.01" id="crash" placeholder="Crash value">
+<button onclick="addResult()">ADD</button>
+
+<div class="card" id="history">History: -</div>
+<div class="card" id="signal">Signal will appear here</div>
+
+<div class="card">
+  <button onclick="recordResult(true)">✅ WIN</button>
+  <button onclick="recordResult(false)">❌ LOSS</button>
+</div>
+
+<div class="card" id="stats">Stats: -</div>
+<canvas id="chart" width="320" height="150"></canvas>
+
+<script>
+const siteSel = document.getElementById("siteSel");
+const crashInput = document.getElementById("crash");
+const historyBox = document.getElementById("history");
+const signalBox = document.getElementById("signal");
+const statsBox = document.getElementById("stats");
+
+let site = siteSel.value;
+let store = {};
+
+function loadSite(){
+  site = siteSel.value;
+  store = JSON.parse(localStorage.getItem(site)) || {
+    data:[], win:0, loss:0, bets:0, results:[], stop:false
+  };
+  analyze();
+}
+
+siteSel.addEventListener("change", loadSite);
+
+function save(){
+  localStorage.setItem(site, JSON.stringify(store));
+}
+
+function addResult(){
+  let v = parseFloat(crashInput.value);
+  if(isNaN(v) || store.stop) return;
+  store.data.push(v);
+  if(store.data.length > 25) store.data.shift();
+  save();
+  analyze();
+  crashInput.value = "";
+}
+
+function accuracy(){
+  return store.bets ? (store.win/store.bets)*100 : 0;
+}
+
+function needLow(){
+  let a = accuracy();
+  if(a >= 70) return 3;
+  if(a >= 55) return 4;
+  return 99;
+}
+
+function cooldown(){
+  return store.data.slice(-3).some(x => x > 2.8);
+}
+
+function lowDensity(){
+  let d = store.data.slice(-10);
+  let l = d.filter(x => x < 1.5).length;
+  return d.length >= 7 && (l/d.length) >= 0.65;
+}
+
+function analyze(){
+  historyBox.innerHTML = "History: " + (store.data.join(", ") || "-");
+
+  let low = 0;
+  for(let i = store.data.length-1; i >= 0; i--){
+    if(store.data[i] < 1.5) low++;
+    else break;
+  }
+
+  let acc = accuracy().toFixed(1);
+  let need = needLow();
+  let html = "", reason = "";
+
+  if(store.stop){
+    html = `<h3 class="wait">SESSION STOP 🚫</h3>`;
+    reason = "3 continuous losses. Stop and protect balance.";
+  }
+  else if(low >= need && !cooldown() && lowDensity()){
+    store.bets++;
+    html = `<h3 class="bet">BET ✅</h3>Cashout: ${acc >= 70 ? "2.0x" : "1.7x"}`;
+    reason = "All confirmations passed. High quality setup.";
+  }
+  else{
+    html = `<h3>WAIT ⏸️</h3>`;
+    reason = "Conditions not clean. Waiting improves accuracy.";
+  }
+
+  signalBox.innerHTML = html + `<hr><small>🧠 AI: ${reason}</small>`;
+
+  statsBox.innerHTML = `
+    Bets: ${store.bets}<br>
+    Wins: ${store.win} | Loss: ${store.loss}<br>
+    Accuracy: ${acc}%
+  `;
+
+  drawChart();
+}
+
+function recordResult(isWin){
+  if(isWin){
+    store.win++;
+    store.results.push("W");
+  }else{
+    store.loss++;
+    store.results.push("L");
+  }
+
+  if(store.results.slice(-3).join("") === "LLL"){
+    store.stop = true;
+  }
+
+  save();
+  analyze();
+}
+
+function drawChart(){
+  let c = document.getElementById("chart");
+  let ctx = c.getContext("2d");
+  ctx.clearRect(0,0,c.width,c.height);
+
+  store.data.slice(-20).forEach((v,i)=>{
+    let y = v < 1.5 ? 110 : v < 2.5 ? 70 : 30;
+    ctx.fillRect(i*14+10, y, 8, 100);
+  });
+}
+
+// initial load
+loadSite();
+</script>
+
+</body>
+</html>     
